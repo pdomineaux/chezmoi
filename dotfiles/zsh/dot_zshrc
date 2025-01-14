@@ -1,0 +1,189 @@
+# If you come from bash you might have to change your $PATH.
+export PATH=$HOME/bin:/usr/local/bin:/usr/local/go/bin:/Users/philippe.domineaux/development/flutter/bin:$PATH
+export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"
+## # Set default editor
+export EDITOR="code -w"
+## export EDITOR="nvim"
+## # Export fzf install location if not install with a package manager
+## export FZF_BASE="$HOME/.fzf"
+
+# --- setup fzf theme ---
+fg="#CBE0F0"
+bg="#011628"
+bg_highlight="#143652"
+purple="#B388FF"
+blue="#06BCE4"
+cyan="#2CF9ED"
+
+#export FZF_DEFAULT_OPTS="--color=fg:${fg},bg:${bg},hl:${purple},fg+:${fg},bg+:${bg_highlight},hl+:${purple},info:${blue},prompt:${cyan},pointer:${cyan},marker:${cyan},spinner:${cyan},header:${cyan}"
+
+# -- Use fd instead of fzf --
+
+export FZF_DEFAULT_COMMAND="fd --hidden --strip-cwd-prefix --exclude .git"
+export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
+export FZF_ALT_C_COMMAND="fd --type=d --hidden --strip-cwd-prefix --exclude .git"
+
+
+# (( ${+commands[direnv]} )) && emulate zsh -c "$(direnv export zsh)"
+
+# ------------------------------------
+# Load completions
+# ------------------------------------
+autoload -Uz compinit && compinit
+
+
+# Configure completion style to enable menu selection
+zstyle ':completion:*:default' menu select=1
+
+# Source fzf key bindings and completion
+source <(fzf --zsh)
+
+# ArgoCD completion
+source <(argocd completion zsh)
+compdef _argocd argocd
+
+# kubectl completion (only if kubectl is installed)
+[[ $commands[kubectl] ]] && source <(kubectl completion zsh)
+
+# Integrate direnv if available
+(( ${+commands[direnv]} )) && emulate zsh -c "$(direnv export zsh)"
+
+
+if [[ -f "/opt/homebrew/bin/brew" ]] then
+  # If you're using macOS, you'll want this enabled
+  eval "$(/opt/homebrew/bin/brew shellenv)"
+fi
+
+# Set the directory we want to store zinit and plugins
+ZINIT_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}/zinit/zinit.git"
+
+# Download Zinit, if it's not there yet
+if [ ! -d "$ZINIT_HOME" ]; then
+   mkdir -p "$(dirname $ZINIT_HOME)"
+   git clone https://github.com/zdharma-continuum/zinit.git "$ZINIT_HOME"
+fi
+
+# Fallback for open_command
+if ! command -v open_command &> /dev/null; then
+  function open_command {
+    open "$@"
+  }
+fi
+
+# Source/Load zinit
+source "${ZINIT_HOME}/zinit.zsh"
+
+# Add in zsh plugins
+zinit light zsh-users/zsh-syntax-highlighting
+zinit light zsh-users/zsh-completions
+zinit light zsh-users/zsh-autosuggestions
+zinit light Aloxaf/fzf-tab
+zinit light MichaelAquilina/zsh-you-should-use
+#zinit light fdellwing/zsh-bat
+
+# Add in snippets
+zinit snippet OMZP::git
+zinit snippet OMZP::sudo
+zinit snippet OMZP::aws
+zinit snippet OMZP::kubectl
+zinit snippet OMZP::kubectx
+zinit snippet OMZP::command-not-found
+zinit snippet OMZP::ssh-agent
+zinit snippet OMZP::z
+zinit snippet OMZP::docker-compose
+zinit snippet OMZP::thefuck
+zinit snippet OMZP::macos
+zinit snippet OMZP::kubectl
+#zinit snippet https://github.com/ohmyzsh/ohmyzsh/tree/master/plugins/argocd
+#zinit snippet OMZP::zsh-bat
+
+# Replay the directory history quietly
+zinit cdreplay -q
+
+
+# ------------------------------------
+# Prompt
+# ------------------------------------
+# install starship if not installed
+if ! type starship > /dev/null; then
+    curl -sS https://starship.rs/install.sh | sh
+fi
+
+# Load Starship
+export STARSHIP_CONFIG=~/.config/starship/starship-omerxx.toml
+eval "$(starship init zsh)"
+
+eval "$(zoxide init zsh)"
+
+# ------------------------------------
+# Keybindings
+# ------------------------------------
+ bindkey -e
+ bindkey '^p' history-search-backward
+ bindkey '^n' history-search-forward
+ bindkey '^[w' kill-region
+ # added by pdo
+ bindkey "^[[1;3C" forward-word
+ bindkey "^[[1;3D" backward-word
+
+# History
+HISTSIZE=5000
+HISTFILE=~/.zsh_history
+SAVEHIST=$HISTSIZE
+HISTDUP=erase
+setopt appendhistory
+setopt sharehistory
+setopt hist_ignore_space
+setopt hist_ignore_all_dups
+setopt hist_save_no_dups
+setopt hist_ignore_dups
+setopt hist_find_no_dups
+
+# Completion styling
+zstyle ':completion:*' matcher-list 'm:{a-z}={A-Za-z}'
+zstyle ':completion:*' list-colors "${(s.:.)LS_COLORS}"
+zstyle ':completion:*' menu no
+zstyle ':fzf-tab:complete:cd:*' fzf-preview 'ls --color $realpath'
+zstyle ':fzf-tab:complete:__zoxide_z:*' fzf-preview 'ls --color $realpath'
+
+# Aliases
+#alias ls='ls --color'
+alias ls='eza --icons=always'
+# alias cd='z'
+alias vim='nvim'
+alias c='clear'
+alias k=kubectl
+alias kx=kubectx
+alias fp="fzf --preview 'bat --style=numbers --color=always --line-range :500 {}'"
+alias zshconfig="nvim ~/.zshrc"
+alias hg="history 1 |grep"
+alias zz='z_fzf'
+alias cz='fzf_cd'
+
+
+#
+## # Shell integrations
+## #if [[ $TERM_PROGRAM != "WarpTerminal" ]]; then
+## #    eval "$(fzf --zsh)"
+## #fi
+## eval $(thefuck --alias)
+
+## #eval `keychain --nogui --agents ssh --inherit any $HOME/.ssh/id_rsa`
+## #eval "$(zoxide init --cmd cd zsh)"
+
+
+# ------------------------------------
+# Functions
+# ------------------------------------
+
+# fzf function to change directories
+fzf_cd() {
+    local dir
+    dir=$(find . -type d -not -path '*/\.*' | fzf +m) && cd "$dir"
+}
+
+# zoxide function with fzf integration
+z_fzf() {
+  local dir
+  dir=$(zoxide query -l | fzf --preview 'exa --color=always --tree {+}' --height 40%) && cd "$dir"
+}
